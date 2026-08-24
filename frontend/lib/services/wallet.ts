@@ -1,6 +1,6 @@
 import { ethers } from "ethers";
-import type { ProgrammableMultiSigWallet } from "../../typechain-types";
-import artifact from "../../artifacts/contracts/ProgrammableMultiSigWallet.sol/ProgrammableMultiSigWallet.json";
+import type { ProgrammableMultiSigWallet } from "../../../blocknode/typechain-types";
+import artifact from "../../../blocknode/artifacts/contracts/ProgrammableMultiSigWallet.sol/ProgrammableMultiSigWallet.json";
 
 export type WalletOwner = { id: string; label: string; address: string; role: 'Signer'; status: 'Active'; added: string; approved: boolean }
 export type WalletTransaction = { id: string; type: 'Send'; amount: string; recipient: string; approvals: number; threshold: number; status: 'Awaiting Approval' | 'Timelocked' | 'Executed' | 'Pending' | 'Cancelled'; date: string; hash?: string }
@@ -35,7 +35,7 @@ const demoTransaction: WalletTransaction = { id: '#0042', type: 'Send', amount: 
 const demoResponse = (message: string) => Promise.resolve({ demo: true, message })
 
 // Environment variables
-export const DEMO_MODE = process.env.NEXT_PUBLIC_USE_DEMO_MODE !== 'false';
+export const DEMO_MODE = false; // Forced Live Mode
 export const SEPOLIA_CHAIN_ID = 11155111;
 
 // Blockchain helpers

@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useMemo } from 'react'
-import { ArrowDownLeft, ArrowUpRight, Bell, Check, ChevronRight, CircleHelp, Copy, ExternalLink, Fingerprint, Gauge, GitBranch, KeyRound, LayoutDashboard, LockKeyhole, Menu, MoreHorizontal, Network, Plus, QrCode, ReceiptText, Send, Settings, ShieldCheck, Sparkles, Users, WalletCards, X, Loader2, Search, Filter } from 'lucide-react'
+import { ArrowDownLeft, ArrowUpRight, Bell, Check, ChevronRight, CircleHelp, Copy, ExternalLink, Fingerprint, Gauge, GitBranch, KeyRound, LayoutDashboard, LockKeyhole, Menu, MoreHorizontal, Network, Plus, QrCode, ReceiptText, Send, Settings, ShieldCheck, Sparkles, Users, WalletCards, X, Loader2, Search, Filter, LogOut } from 'lucide-react'
 import { DEMO_MODE, DEMO_MODE_NOTICE, walletService, type WalletOwner, type WalletTransaction, SEPOLIA_CHAIN_ID } from '@/lib/services/wallet'
 import { ethers } from 'ethers'
 
@@ -596,6 +596,13 @@ export default function Page() {
     }
   }
 
+  const disconnect = () => {
+    setConnected(false);
+    setAccount('');
+    setChainId(null);
+    showNotice('Wallet disconnected.');
+  }
+
   const switchNetwork = async () => {
     try {
       if ((window as any).ethereum) {
@@ -636,7 +643,7 @@ export default function Page() {
     }
   }, [connected, chainId, contractAddress]);
 
-  const title = active === 'Dashboard' ? 'Good morning' : active; 
+  const title = active === 'Dashboard' ? 'Dashboard' : active; 
 
   return (
     <main className="app-shell flex text-foreground font-sans">
@@ -654,12 +661,15 @@ export default function Page() {
         <div className="p-4 border-t border-border bg-muted/10">
           <div className="text-xs text-muted-foreground mb-3 text-center">Network: Sepolia</div>
           {connected ? (
-            <div className="flex items-center gap-3 p-3 bg-card border border-border rounded-xl">
+            <div className="flex items-center gap-3 p-3 bg-card border border-border rounded-xl relative group">
               <div className="w-8 h-8 rounded-full bg-primary/20 text-primary flex items-center justify-center font-bold text-xs">S1</div>
-              <div className="overflow-hidden text-left">
+              <div className="overflow-hidden text-left flex-1">
                 <div className="text-xs font-semibold">Connected</div>
                 <div className="text-xs text-muted-foreground truncate">{account.slice(0,6)}...{account.slice(-4)}</div>
               </div>
+              <button onClick={disconnect} className="absolute right-3 p-2 bg-destructive/10 text-destructive rounded-lg opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive hover:text-destructive-foreground" title="Disconnect">
+                <LogOut size={14} />
+              </button>
             </div>
           ) : (
             <button className="primary-button w-full justify-center" onClick={connect}>Connect Wallet</button>

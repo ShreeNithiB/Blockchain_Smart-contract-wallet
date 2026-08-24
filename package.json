@@ -1,42 +1,15 @@
 {
-  "name": "my-project",
+  "name": "nexus-wallet",
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "eslint ."
-  },
-  "dependencies": {
-    "@base-ui/react": "^1.5.0",
-    "@vercel/analytics": "1.6.1",
-    "class-variance-authority": "^0.7.1",
-    "clsx": "^2.1.1",
-    "ethers": "^6.17.0",
-    "lucide-react": "^1.16.0",
-    "next": "16.3.0",
-    "react": "^19",
-    "react-dom": "^19",
-    "shadcn": "^4.8.0",
-    "tailwind-merge": "^3.3.1",
-    "tw-animate-css": "^1.4.0"
-  },
-  "devDependencies": {
-    "@nomicfoundation/hardhat-network-helpers": "^1.1.2",
-    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
-    "@openzeppelin/contracts": "^5.6.1",
-    "@tailwindcss/postcss": "^4.3.3",
-    "@types/chai": "^4.3.20",
-    "@types/node": "^24",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "chai": "^4.5.0",
-    "dotenv": "^17.4.2",
-    "hardhat": "^2.29.0",
-    "postcss": "^8.5",
-    "tailwindcss": "^4.3.3",
-    "typescript": "5.7.3"
+    "dev": "pnpm --filter nexus-frontend run dev",
+    "build": "pnpm --filter nexus-frontend run build",
+    "start": "pnpm --filter nexus-frontend run start",
+    "dev:frontend": "pnpm --filter nexus-frontend run dev",
+    "build:frontend": "pnpm --filter nexus-frontend run build",
+    "test:contracts": "pnpm --filter nexus-blocknode run test",
+    "compile:contracts": "pnpm --filter nexus-blocknode run compile"
   },
   "pnpm": {
     "overrides": {

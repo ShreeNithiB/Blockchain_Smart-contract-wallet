@@ -21,3 +21,7 @@ cache/
 typechain-types/
 coverage/
 coverage.json
+# User requested ignores
+claude.md
+AGENTS.md
+agents.md
