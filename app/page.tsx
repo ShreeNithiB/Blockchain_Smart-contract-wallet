@@ -1,12 +1,17 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { ArrowDownLeft, ArrowUpRight, Bell, Check, ChevronRight, CircleHelp, Copy, ExternalLink, Fingerprint, Gauge, GitBranch, KeyRound, LayoutDashboard, LockKeyhole, Menu, MoreHorizontal, Network, Plus, QrCode, ReceiptText, Send, Settings, ShieldCheck, Sparkles, Users, WalletCards, X, Loader2 } from 'lucide-react'
+import { useEffect, useState, useMemo } from 'react'
+import { ArrowDownLeft, ArrowUpRight, Bell, Check, ChevronRight, CircleHelp, Copy, ExternalLink, Fingerprint, Gauge, GitBranch, KeyRound, LayoutDashboard, LockKeyhole, Menu, MoreHorizontal, Network, Plus, QrCode, ReceiptText, Send, Settings, ShieldCheck, Sparkles, Users, WalletCards, X, Loader2, Search, Filter } from 'lucide-react'
 import { DEMO_MODE, DEMO_MODE_NOTICE, walletService, type WalletOwner, type WalletTransaction, SEPOLIA_CHAIN_ID } from '@/lib/services/wallet'
 import { ethers } from 'ethers'
 
 const nav = [
-  ['Dashboard', LayoutDashboard], ['Wallet', WalletCards], ['Send', Send], ['Receive', ArrowDownLeft], ['Transactions', ReceiptText], ['Approvals', Check], ['Security', ShieldCheck], ['Owners', Users], ['Settings', Settings],
+  ['Dashboard', LayoutDashboard], 
+  ['Wallet', WalletCards], 
+  ['Send', Send], 
+  ['Receive', ArrowDownLeft], 
+  ['Transactions', ReceiptText], 
+  ['Owners', Users]
 ] as const
 
 function Logo() { return <div className="flex items-center gap-3"><div className="logo-mark"><GitBranch size={18} /></div><div><div className="text-sm font-semibold tracking-[0.22em] text-foreground">NEXUS</div><div className="text-[9px] font-medium tracking-[0.28em] text-muted-foreground">WALLET</div></div></div> }
@@ -25,57 +30,27 @@ function ParticleBackground() { return <div aria-hidden="true" className="partic
 function CopyButton({ value }: { value: string }) { const [copied, setCopied] = useState(false); return <button className="icon-button" aria-label="Copy address" onClick={() => { navigator.clipboard?.writeText(value); setCopied(true); setTimeout(() => setCopied(false), 1400) }}>{copied ? <Check size={15} /> : <Copy size={15} />}</button> }
 function Badge({ children, tone = 'neutral' }: { children: React.ReactNode; tone?: 'neutral' | 'success' | 'warning' | 'destructive' }) { return <span className={`badge badge-${tone}`}>{children}</span> }
 function SectionTitle({ eyebrow, title, action }: { eyebrow: string; title: string; action?: React.ReactNode }) { return <div className="section-title"><div><div className="eyebrow">{eyebrow}</div><h2>{title}</h2></div>{action}</div> }
-function StatCard({ label, value, hint, icon: Icon, loading = false }: { label: string; value: string; hint: string; icon: typeof Users; loading?: boolean }) { return <div className="stat-card"><div className="stat-icon"><Icon size={17} /></div><div className="eyebrow">{label}</div><div className="stat-value">{loading ? <Loader2 size={16} className="animate-spin" /> : value}</div><div className="stat-hint">{hint}</div></div> }
-function WalletBalance({ onSend, address, balance, loading }: { onSend: () => void, address: string, balance: string, loading: boolean }) { 
+
+// DASHBOARD COMPONENTS
+function DashboardCard({ label, value, hint, loading = false, highlight = false }: { label: string; value: string; hint?: string; loading?: boolean; highlight?: boolean }) { 
   return (
-    <section className="hero-card"><div className="hero-grid" /><div className="hero-content">
-      <div className="flex items-center justify-between gap-4">
-        <div className="eyebrow text-primary">SMART CONTRACT WALLET</div>
-        <Badge tone="success"><span className="status-dot" /> SECURE</Badge>
-      </div>
-      <div className="mt-8 flex items-end justify-between gap-4">
-        <div>
-          <div className="address-row">
-            <span>{address ? `${address.slice(0,6)}...${address.slice(-4)}` : 'Not Deployed'}</span>
-            {address && <CopyButton value={address} />}
-          </div>
-          <div className="text-xs text-muted-foreground">Wallet address · Sepolia test network</div>
-        </div>
-        {address && <a href={`https://sepolia.etherscan.io/address/${address}`} target="_blank" rel="noreferrer" className="link-button hidden sm:flex">View on Explorer <ExternalLink size={14} /></a>}
-      </div>
-      <div className="mt-8 flex flex-wrap items-end justify-between gap-5">
-        <div>
-          <div className="balance-label">TOTAL BALANCE</div>
-          <div className="balance-value">{loading ? <Loader2 className="animate-spin mt-2" /> : balance} <span>ETH</span></div>
-          <div className="text-sm text-muted-foreground">≈ $-- USD</div>
-        </div>
-        <button className="primary-button" onClick={onSend} disabled={!address}><Send size={15} /> Send assets</button>
-      </div>
-    </div></section>
-  )
-}
-function MultisigProgress({ current, total }: { current: number, total: number }) { const pct = total > 0 ? (current / total) * 100 : 0; return <div className="progress-wrap"><div className="flex items-center justify-between text-xs"><span className="text-muted-foreground">Approval progress</span><strong>{current} / {total}</strong></div><div className="progress-track"><div className="progress-fill" style={{width: `${pct}%`}} /></div></div> }
-function ApprovalTimeline({ status }: { status: WalletTransaction['status'] }) { 
-  const steps = ['Created', 'Approvals', 'Timelock', 'Executable', 'Executed'];
-  let activeIndex = 0;
-  if (status === 'Awaiting Approval') activeIndex = 1;
-  if (status === 'Timelocked') activeIndex = 2;
-  if (status === 'Pending') activeIndex = 3;
-  if (status === 'Executed') activeIndex = 4;
-
-  return <div className="timeline">{steps.map((step, i) => <div className={`timeline-step ${i < activeIndex ? 'complete' : i === activeIndex ? 'current' : ''}`} key={step}><div className="timeline-node">{i < activeIndex ? <Check size={12} /> : i === activeIndex ? <span /> : null}</div><span>{step}</span>{i < steps.length - 1 && <div className="timeline-line" />}</div>)}</div> 
+    <div className={`p-5 rounded-xl border border-border ${highlight ? 'bg-primary/5 border-primary/20' : 'bg-card'} shadow-sm`}>
+      <div className="text-xs font-semibold tracking-wider text-muted-foreground uppercase mb-3">{label}</div>
+      <div className={`text-2xl font-bold ${highlight ? 'text-primary' : 'text-foreground'}`}>{loading ? <Loader2 size={16} className="animate-spin" /> : value}</div>
+      {hint && <div className="text-xs text-muted-foreground mt-2">{hint}</div>}
+    </div>
+  ) 
 }
 
-function TransactionCard({ onNotice, tx, owners, contractAddress, reload }: { onNotice: (m: string) => void, tx: WalletTransaction | null, owners: WalletOwner[], contractAddress: string, reload: () => void }) { 
-  if (!tx) return <section className="panel approval-card opacity-50"><div className="text-center py-10"><ReceiptText size={32} className="mx-auto mb-4 text-muted-foreground"/>No pending transactions.</div></section>
+function PendingApprovalsWidget({ tx, owners, contractAddress, reload, onNotice }: any) {
+  if (!tx || (tx.status !== 'Awaiting Approval' && tx.status !== 'Pending')) return null;
+  
   const [loading, setLoading] = useState(false);
-
-  const handleAction = async (action: 'approve'|'revoke'|'execute') => {
+  const handleAction = async (action: 'approve'|'execute') => {
     setLoading(true);
     let res;
     const txIdNum = parseInt(tx.id.replace('#', ''));
     if (action === 'approve') res = await walletService.approveTransaction(contractAddress, txIdNum);
-    else if (action === 'revoke') res = await walletService.revokeApproval(contractAddress, txIdNum);
     else res = await walletService.executeTransaction(contractAddress, txIdNum);
     
     if (res.error) onNotice(res.error);
@@ -84,155 +59,329 @@ function TransactionCard({ onNotice, tx, owners, contractAddress, reload }: { on
   }
 
   return (
-    <section className="panel approval-card">
-      <div className="flex items-start justify-between gap-3">
-        <div><div className="eyebrow">FEATURED APPROVAL</div><h3>Transaction {tx.id}</h3></div>
-        <Badge tone={tx.status === 'Executed' ? 'success' : tx.status === 'Cancelled' ? 'destructive' : 'warning'}>{tx.status}</Badge>
-      </div>
-      <div className="transaction-main">
+    <div className="p-5 rounded-xl border border-warning/30 bg-warning/5 mb-6 shadow-sm relative overflow-hidden">
+      <div className="absolute top-0 right-0 p-4 opacity-10 pointer-events-none"><Check size={64} /></div>
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 relative z-10">
         <div>
-          <div className="text-sm text-muted-foreground">{tx.type}</div>
-          <div className="amount">{tx.amount.split(' ')[0]} <span>ETH</span></div>
-          <div className="text-sm text-muted-foreground">To: <strong className="text-foreground">{tx.recipient.slice(0,8)}...{tx.recipient.slice(-6)}</strong></div>
+          <div className="text-xs font-semibold text-warning tracking-wider uppercase mb-1">Action Required</div>
+          <div className="font-medium text-lg">Transaction {tx.id}</div>
+          <div className="text-sm text-muted-foreground mt-1">Send {tx.amount} to {tx.recipient.slice(0,6)}...{tx.recipient.slice(-4)}</div>
         </div>
-        <div className="approval-count"><div className="text-2xl font-semibold">{tx.approvals}<span className="text-muted-foreground">/{tx.threshold}</span></div><div className="text-xs text-muted-foreground">APPROVALS</div></div>
+        
+        <div className="flex items-center gap-6">
+          <div className="text-right">
+            <div className="text-sm font-semibold">{tx.approvals} / {tx.threshold} Approvals</div>
+            <div className="text-xs text-muted-foreground mt-1">Status: {tx.status}</div>
+          </div>
+          
+          <div className="flex gap-2">
+            {tx.status === 'Awaiting Approval' && <button className="primary-button" onClick={() => handleAction('approve')} disabled={loading}>{loading ? <Loader2 size={15} className="animate-spin" /> : 'Approve'}</button>}
+            {tx.status === 'Pending' && <button className="primary-button" onClick={() => handleAction('execute')} disabled={loading}>{loading ? <Loader2 size={15} className="animate-spin" /> : 'Execute'}</button>}
+          </div>
+        </div>
       </div>
-      <MultisigProgress current={tx.approvals} total={tx.threshold} />
-      <div className="owner-approvals">
-        {owners.map((owner) => (
-          <div className="owner-approval" key={owner.id}>
-            <div className={`owner-avatar ${owner.approved ? 'approved' : ''}`}>{owner.id}</div>
-            <div>
-              <div className="text-sm font-medium">{owner.label}</div>
-              <div className={`text-xs ${owner.approved ? 'text-primary' : 'text-muted-foreground'}`}>{owner.approved ? '✓ Approved' : 'Waiting'}</div>
+    </div>
+  )
+}
+
+function Dashboard({ contractAddress, balance, owners, threshold, dailyLimit, events, featuredTx, loading, onNotice, reload, onWizard }: any) {
+  if (!contractAddress) return <EmptyState title="Wallet not deployed" message="Deploy a smart contract wallet to view your dashboard." action="Launch Deployment Wizard" onAction={onWizard} />;
+  
+  return (
+    <div className="space-y-6 animate-in fade-in duration-500">
+      <PendingApprovalsWidget tx={featuredTx} owners={owners} contractAddress={contractAddress} reload={reload} onNotice={onNotice} />
+      
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <DashboardCard label="Total Balance" value={`${balance} ETH`} highlight loading={loading} />
+        <DashboardCard label="Smart Contract" value={contractAddress ? `${contractAddress.slice(0,6)}...${contractAddress.slice(-4)}` : '--'} hint="Ethereum Sepolia" loading={loading} />
+        <DashboardCard label="Multisig Status" value={`${threshold} / ${owners.length}`} hint="Signatures required" loading={loading} />
+        <DashboardCard label="Security" value="Secure" hint={`Daily limit: ${dailyLimit} ETH`} loading={loading} />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 panel">
+          <SectionTitle eyebrow="ACTIVITY" title="Recent Transactions" />
+          <div className="divide-y divide-border">
+            {events.length === 0 ? <div className="py-8 text-center text-muted-foreground text-sm">No recent transactions.</div> : events.slice(0, 5).map((row: any, i: number) => (
+              <div className="py-4 flex justify-between items-center" key={i}>
+                <div>
+                  <div className="font-medium text-sm">{row.name}</div>
+                  <div className="text-xs text-muted-foreground mt-1">Block {row.blockNumber}</div>
+                </div>
+                <a href={`https://sepolia.etherscan.io/tx/${row.transactionHash}`} target="_blank" rel="noreferrer" className="text-xs font-mono text-primary hover:underline">{row.transactionHash.slice(0,10)}... <ExternalLink size={10} className="inline"/></a>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="panel bg-card">
+          <SectionTitle eyebrow="OVERVIEW" title="Wallet Info" />
+          <div className="space-y-4 text-sm mt-6">
+            <div className="flex justify-between border-b border-border pb-3">
+              <span className="text-muted-foreground">Network</span>
+              <span className="font-medium">Ethereum Sepolia</span>
+            </div>
+            <div className="flex justify-between border-b border-border pb-3">
+              <span className="text-muted-foreground">Contract Type</span>
+              <span className="font-medium">Nexus MultiSig</span>
+            </div>
+            <div className="flex justify-between border-b border-border pb-3">
+              <span className="text-muted-foreground">Owners</span>
+              <span className="font-medium">{owners.length} Active Signers</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Daily Limit</span>
+              <span className="font-medium">{dailyLimit} ETH</span>
             </div>
           </div>
-        ))}
+        </div>
       </div>
-      <ApprovalTimeline status={tx.status} />
-      <div className="action-row">
-        {tx.status === 'Awaiting Approval' && <button className="primary-button" onClick={() => handleAction('approve')} disabled={loading}>{loading ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />} Approve</button>}
-        {tx.status === 'Awaiting Approval' && <button className="secondary-button" onClick={() => handleAction('revoke')} disabled={loading}>Revoke</button>}
-        {tx.status === 'Pending' && <button className="secondary-button" onClick={() => handleAction('execute')} disabled={loading}>Execute</button>}
-      </div>
-      {tx.hash && <div className="mt-4 text-xs text-center"><a href={`https://sepolia.etherscan.io/tx/${tx.hash}`} target="_blank" rel="noreferrer" className="text-primary hover:underline">View Transaction <ExternalLink size={10} className="inline"/></a></div>}
-    </section>
-  ) 
+    </div>
+  )
 }
 
-function SecuritySummary({ dailyLimit, highValue, timelock, loading }: any) { 
+function EmptyState({ title, message, action, onAction }: { title: string, message: string, action?: string, onAction?: () => void }) {
   return (
-    <section className="panel">
-      <SectionTitle eyebrow="POLICY STATUS" title="Security center" action={<button className="icon-button"><MoreHorizontal size={16} /></button>} />
-      <div className="security-list">
-        {[['Daily spending limit', loading ? '...' : `${dailyLimit} ETH`, Gauge], 
-          ['High value threshold', loading ? '...' : `${highValue} ETH`, Fingerprint], 
-          ['Transaction timelock', loading ? '...' : `${timelock} seconds`, LockKeyhole], 
-          ['Whitelist mode', 'Enabled', ShieldCheck]
-        ].map(([label, value, Icon]) => (
-          <div className="security-row" key={label as string}>
-            <div className="flex items-center gap-3"><div className="mini-icon"><Icon size={15} /></div><span>{label as string}</span></div>
-            <strong>{value as string}</strong>
+    <div className="flex flex-col items-center justify-center py-20 text-center border border-dashed border-border rounded-xl bg-card/50">
+      <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mb-6 text-muted-foreground">
+        <Sparkles size={24} />
+      </div>
+      <h3 className="text-xl font-bold mb-2">{title}</h3>
+      <p className="text-muted-foreground max-w-sm mb-6">{message}</p>
+      {action && <button className="primary-button" onClick={onAction}>{action}</button>}
+    </div>
+  )
+}
+
+// WALLET PAGE
+function WalletPage({ contractAddress, balance, owners, threshold, dailyLimit, highValue, timelock, loading }: any) {
+  if (!contractAddress) return <EmptyState title="Wallet not deployed" message="Deploy a smart contract wallet to access this page." />;
+  return (
+    <div className="space-y-6 animate-in fade-in duration-500">
+      <div className="panel flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+        <div>
+          <div className="eyebrow mb-2">SMART CONTRACT ADDRESS</div>
+          <div className="flex items-center gap-3">
+            <div className="text-2xl font-mono tracking-tight">{contractAddress.slice(0,8)}...{contractAddress.slice(-8)}</div>
+            <CopyButton value={contractAddress} />
           </div>
-        ))}
-      </div>
-    </section>
-  ) 
-}
-
-function History({ events }: { events: any[] }) { 
-  return (
-    <section className="panel history-panel">
-      <SectionTitle eyebrow="ACTIVITY" title="Recent events" action={<button className="link-button">View all <ChevronRight size={14} /></button>} />
-      <div className="history-table">
-        <div className="history-head"><span>Event</span><span>Block</span><span>Transaction Hash</span></div>
-        {events.length === 0 ? <div className="py-8 text-center text-muted-foreground text-sm">No recent events found.</div> : events.map((row, i) => (
-          <div className="history-row grid-cols-3" key={i}>
-            <span className="font-medium text-foreground">{row.name}</span>
-            <span>{row.blockNumber}</span>
-            <a href={`https://sepolia.etherscan.io/tx/${row.transactionHash}`} target="_blank" rel="noreferrer" className="text-primary hover:underline">{row.transactionHash.slice(0,10)}... <ExternalLink size={10} className="inline"/></a>
+          <div className="mt-3 text-sm text-muted-foreground">
+            <a href={`https://sepolia.etherscan.io/address/${contractAddress}`} target="_blank" rel="noreferrer" className="flex items-center gap-1 hover:text-primary transition-colors">
+              View on Sepolia Explorer <ExternalLink size={14} />
+            </a>
           </div>
-        ))}
+        </div>
+        <div className="text-right">
+          <div className="eyebrow mb-2">CURRENT BALANCE</div>
+          <div className="text-3xl font-bold text-primary">{loading ? <Loader2 size={16} className="animate-spin inline" /> : balance} <span className="text-sm text-muted-foreground">ETH</span></div>
+        </div>
       </div>
-    </section>
-  ) 
-}
 
-function OwnersPanel({ onNotice, owners, threshold }: { onNotice: (m: string) => void, owners: WalletOwner[], threshold: number }) { 
-  return (
-    <section className="panel">
-      <SectionTitle eyebrow="SIGNERS" title="Wallet owners" action={<button className="secondary-button" onClick={() => onNotice('Propose new owner functionality coming soon.')}> <Plus size={14} /> Add owner</button>} />
-      <div className="owner-list">
-        {owners.map(owner => (
-          <div className="owner-list-row" key={owner.id}>
-            <div className="owner-avatar approved">{owner.id}</div>
-            <div className="min-w-0 flex-1">
-              <div className="text-sm font-medium">{owner.label}</div>
-              <div className="truncate text-xs text-muted-foreground">{owner.address}</div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="panel">
+          <SectionTitle eyebrow="CONFIGURATION" title="Multisig Settings" />
+          <div className="space-y-4 mt-6 text-sm">
+            <div className="flex justify-between py-3 border-b border-border">
+              <span className="text-muted-foreground flex items-center gap-2"><Users size={16}/> Owners</span>
+              <span className="font-semibold">{owners.length} Active</span>
             </div>
-            <div className="hidden text-right sm:block">
-              <div className="text-xs text-muted-foreground">Role</div>
-              <div className="text-sm">{owner.role}</div>
+            <div className="flex justify-between py-3 border-b border-border">
+              <span className="text-muted-foreground flex items-center gap-2"><Check size={16}/> Required Approvals</span>
+              <span className="font-semibold">{threshold} of {owners.length}</span>
             </div>
-            <Badge tone="success">Active</Badge>
           </div>
-        ))}
+        </div>
+        <div className="panel">
+          <SectionTitle eyebrow="PROTECTION" title="Security Policies" />
+          <div className="space-y-4 mt-6 text-sm">
+            <div className="flex justify-between py-3 border-b border-border">
+              <span className="text-muted-foreground flex items-center gap-2"><Gauge size={16}/> Daily Spending Limit</span>
+              <span className="font-semibold">{dailyLimit} ETH</span>
+            </div>
+            <div className="flex justify-between py-3 border-b border-border">
+              <span className="text-muted-foreground flex items-center gap-2"><LockKeyhole size={16}/> Timelock Duration</span>
+              <span className="font-semibold">{timelock} seconds</span>
+            </div>
+            <div className="flex justify-between py-3 border-b border-border">
+              <span className="text-muted-foreground flex items-center gap-2"><Fingerprint size={16}/> High Value Threshold</span>
+              <span className="font-semibold">{highValue} ETH</span>
+            </div>
+            <div className="flex justify-between py-3">
+              <span className="text-muted-foreground flex items-center gap-2"><ShieldCheck size={16}/> Emergency Freeze</span>
+              <Badge tone="success">Inactive</Badge>
+            </div>
+          </div>
+        </div>
       </div>
-      <div className="threshold-row">
-        <span>Required threshold</span><strong>{threshold} of {owners.length}</strong>
-        <button className="link-button" onClick={() => onNotice('Propose threshold change coming soon.')}>Change threshold <ChevronRight size={14} /></button>
-      </div>
-    </section>
-  ) 
+    </div>
+  )
 }
 
-function SendPanel({ onNotice, contractAddress, reload }: { onNotice: (m: string) => void, contractAddress: string, reload: () => void }) { 
+// SEND PAGE
+function SendPage({ onNotice, contractAddress, balance, reload }: any) {
+  if (!contractAddress) return <EmptyState title="Wallet not deployed" message="Deploy a smart contract wallet to send assets." />;
   const [recipient, setRecipient] = useState('');
   const [amount, setAmount] = useState('');
   const [loading, setLoading] = useState(false);
 
   return (
-    <section className="panel send-panel">
-      <SectionTitle eyebrow="NEW PROPOSAL" title="Send transaction" />
-      <div className="form-grid">
-        <label>Recipient address<input placeholder="0x..." value={recipient} onChange={e => setRecipient(e.target.value)} /></label>
-        <label>Amount (ETH)<input placeholder="0.00" value={amount} onChange={e => setAmount(e.target.value)} /></label>
+    <div className="max-w-2xl mx-auto panel animate-in fade-in duration-500">
+      <SectionTitle eyebrow="TRANSFER" title="Send Assets" />
+      <div className="mt-8 space-y-6">
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-muted-foreground">Recipient Address</label>
+          <input className="w-full p-4 bg-background border border-border rounded-xl font-mono text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all" placeholder="0x..." value={recipient} onChange={e => setRecipient(e.target.value)} />
+        </div>
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-muted-foreground flex justify-between">
+            <span>Amount (ETH)</span>
+            <span>Available: {balance} ETH</span>
+          </label>
+          <div className="relative">
+            <input className="w-full p-4 bg-background border border-border rounded-xl text-lg font-medium focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all" placeholder="0.00" value={amount} onChange={e => setAmount(e.target.value)} />
+            <div className="absolute right-4 top-1/2 -translate-y-1/2 font-semibold text-muted-foreground">ETH</div>
+          </div>
+        </div>
+        
+        <div className="p-4 bg-muted/30 border border-border rounded-xl text-sm space-y-3 mt-8">
+          <div className="flex justify-between"><span className="text-muted-foreground">Network Fee</span><span>Estimated</span></div>
+          <div className="flex justify-between"><span className="text-muted-foreground">Total</span><span className="font-semibold">{amount || '0.00'} ETH</span></div>
+        </div>
+
+        <button className="primary-button w-full justify-center py-4 text-sm mt-4" disabled={loading || !contractAddress || !recipient || !amount} onClick={async () => { 
+          setLoading(true);
+          const res = await walletService.submitTransaction(contractAddress, { recipient, amount });
+          if (res.error) onNotice(res.error);
+          else { onNotice(res.message); setRecipient(''); setAmount(''); reload(); }
+          setLoading(false);
+        }}>
+          {loading ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />} Submit Proposal
+        </button>
       </div>
-      <div className="analysis-box">
-        <div className="eyebrow">SECURITY ANALYSIS</div>
-        {[['Recipient', 'Whitelisted ✓'], ['Daily limit', 'Available ✓'], ['Timelock', '60 seconds']].map(item => (
-          <div className="analysis-row" key={item[0]}><span>{item[0]}</span><strong>{item[1]}</strong></div>
-        ))}
-      </div>
-      <button className="primary-button w-full justify-center" disabled={loading || !contractAddress || !recipient || !amount} onClick={async () => { 
-        setLoading(true);
-        const res = await walletService.submitTransaction(contractAddress, { recipient, amount });
-        if (res.error) onNotice(res.error);
-        else { onNotice(res.message); setRecipient(''); setAmount(''); reload(); }
-        setLoading(false);
-      }}>
-        {loading ? <Loader2 size={15} className="animate-spin" /> : <ArrowUpRight size={15} />} Submit Proposal
-      </button>
-    </section>
-  ) 
+    </div>
+  )
 }
 
-function ReceivePanel({ contractAddress }: { contractAddress: string }) { 
+// RECEIVE PAGE
+function ReceivePage({ contractAddress }: any) {
+  if (!contractAddress) return <EmptyState title="Wallet not deployed" message="Deploy a smart contract wallet to receive assets." />;
   return (
-    <section className="panel receive-panel">
-      <SectionTitle eyebrow="INBOUND ASSETS" title="Receive" />
-      <div className="receive-content">
-        <div className="qr-placeholder"><QrCode size={100} strokeWidth={1} /><span>QR CODE</span></div>
-        <div>
-          <div className="eyebrow">SMART CONTRACT WALLET ADDRESS</div>
-          <div className="address-row large">{contractAddress || 'Not Deployed'} {contractAddress && <CopyButton value={contractAddress} />}</div>
-          <div className="flex items-center gap-2 text-sm text-muted-foreground"><Network size={14} /> Ethereum Sepolia</div>
-          <div className="warning-note">Only send assets compatible with this network.</div>
+    <div className="max-w-md mx-auto panel text-center animate-in fade-in duration-500 py-10">
+      <div className="inline-flex items-center justify-center p-4 rounded-full bg-primary/10 text-primary mb-6">
+        <ArrowDownLeft size={32} />
+      </div>
+      <h2 className="text-2xl font-bold mb-2">Receive ETH</h2>
+      <p className="text-sm text-muted-foreground mb-10">Send assets only to this smart contract address on the Ethereum Sepolia network.</p>
+      
+      <div className="bg-white p-4 rounded-2xl inline-block mx-auto mb-8 shadow-sm">
+        <QrCode size={180} strokeWidth={1.5} className="text-black" />
+      </div>
+
+      <div className="bg-background border border-border p-4 rounded-xl flex items-center justify-between gap-4 text-left">
+        <div className="overflow-hidden">
+          <div className="text-xs text-muted-foreground mb-1 font-medium">Contract Address</div>
+          <div className="font-mono text-sm truncate">{contractAddress}</div>
+        </div>
+        <div className="shrink-0"><CopyButton value={contractAddress} /></div>
+      </div>
+    </div>
+  )
+}
+
+// TRANSACTIONS PAGE
+function TransactionsPage({ events, contractAddress, featuredTx }: any) {
+  if (!contractAddress) return <EmptyState title="Wallet not deployed" message="Deploy a smart contract wallet to view transactions." />;
+  const [filter, setFilter] = useState('All');
+  
+  // Mix in featuredTx if it exists and isn't just an event, for demonstration.
+  // In a real app we'd fetch all transactions from the contract, not just events.
+  // The current walletService mostly returns events, we will rely on events for history.
+
+  return (
+    <div className="panel animate-in fade-in duration-500">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+        <SectionTitle eyebrow="HISTORY" title="Transactions" />
+        <div className="flex items-center gap-2">
+          {['All', 'Pending', 'Executed'].map(f => (
+            <button key={f} className={`px-4 py-2 rounded-full text-xs font-medium border ${filter === f ? 'bg-primary text-primary-foreground border-primary' : 'bg-transparent border-border text-muted-foreground hover:border-muted-foreground'}`} onClick={() => setFilter(f)}>{f}</button>
+          ))}
         </div>
       </div>
-    </section>
-  ) 
+
+      {featuredTx && filter !== 'Executed' && (
+        <div className="mb-8">
+          <div className="text-sm font-semibold text-muted-foreground mb-4">Pending Proposal</div>
+          <div className="p-4 border border-border rounded-xl flex justify-between items-center bg-card">
+            <div>
+              <div className="font-medium">Tx {featuredTx.id} - Send {featuredTx.amount}</div>
+              <div className="text-xs text-muted-foreground mt-1">To: {featuredTx.recipient}</div>
+            </div>
+            <Badge tone="warning">{featuredTx.status}</Badge>
+          </div>
+        </div>
+      )}
+
+      <div className="text-sm font-semibold text-muted-foreground mb-4">Past Events</div>
+      {events.length === 0 ? <EmptyState title="No transactions yet" message="There is no transaction history for this wallet." /> : (
+        <div className="border border-border rounded-xl overflow-hidden">
+          <div className="grid grid-cols-4 bg-muted/30 p-4 text-xs font-semibold text-muted-foreground tracking-wider uppercase border-b border-border">
+            <div className="col-span-2">Event / Type</div>
+            <div>Block</div>
+            <div className="text-right">Transaction Hash</div>
+          </div>
+          <div className="divide-y divide-border">
+            {events.map((e: any, i: number) => (
+              <div key={i} className="grid grid-cols-4 p-4 items-center text-sm hover:bg-muted/10 transition-colors">
+                <div className="col-span-2 font-medium">{e.name}</div>
+                <div className="text-muted-foreground">{e.blockNumber}</div>
+                <div className="text-right font-mono"><a href={`https://sepolia.etherscan.io/tx/${e.transactionHash}`} target="_blank" rel="noreferrer" className="text-primary hover:underline">{e.transactionHash.slice(0,10)}... <ExternalLink size={10} className="inline"/></a></div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
 }
+
+// OWNERS PAGE
+function OwnersPage({ owners, threshold, contractAddress, account }: any) {
+  if (!contractAddress) return <EmptyState title="Wallet not deployed" message="Deploy a smart contract wallet to view owners." />;
+  return (
+    <div className="animate-in fade-in duration-500">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-8 gap-4">
+        <div>
+          <div className="eyebrow mb-2">ACCESS CONTROL</div>
+          <h2 className="text-3xl font-bold">NEXUS Owners</h2>
+          <p className="text-muted-foreground mt-2">Requires {threshold} of {owners.length} signatures to execute transactions.</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {owners.map((owner: any) => {
+          const isMe = account?.toLowerCase() === owner.address.toLowerCase();
+          return (
+            <div key={owner.id} className={`p-6 rounded-xl border ${isMe ? 'bg-primary/5 border-primary/30 shadow-[0_0_20px_rgba(91,224,187,0.1)]' : 'bg-card border-border shadow-sm'}`}>
+              <div className="flex justify-between items-start mb-6">
+                <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center font-bold text-lg text-primary">{owner.id}</div>
+                {isMe && <Badge tone="success">Connected</Badge>}
+              </div>
+              <div className="font-semibold text-lg">{isMe ? 'YOU' : owner.label}</div>
+              <div className="flex items-center gap-2 mt-2">
+                <div className="font-mono text-sm text-muted-foreground truncate">{owner.address}</div>
+                <CopyButton value={owner.address} />
+              </div>
+              <div className="mt-6 flex items-center gap-2 text-xs font-medium text-success">
+                <span className="w-2 h-2 rounded-full bg-success"></span> Active Signer
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 
 function Wizard({ onClose, onDeploySuccess }: { onClose: () => void, onDeploySuccess: (address: string) => void }) { 
   const [step, setStep] = useState(1); 
@@ -411,6 +560,7 @@ function Wizard({ onClose, onDeploySuccess }: { onClose: () => void, onDeploySuc
   ) 
 }
 
+// MAIN PAGE COMPONENT
 export default function Page() { 
   const [active, setActive] = useState('Dashboard'); 
   const [notice, setNotice] = useState(''); 
@@ -481,104 +631,82 @@ export default function Page() {
   useEffect(() => {
     if (connected && (chainId === SEPOLIA_CHAIN_ID || DEMO_MODE)) {
       loadData();
-      const interval = setInterval(loadData, 15000); // Refresh every 15s
+      const interval = setInterval(loadData, 15000); 
       return () => clearInterval(interval);
     }
   }, [connected, chainId, contractAddress]);
 
-  const title = active === 'Dashboard' ? 'Good morning, Signer' : active; 
-
-  let content;
-  if (active === 'Send') content = <SendPanel onNotice={showNotice} contractAddress={contractAddress} reload={loadData} />;
-  else if (active === 'Receive') content = <ReceivePanel contractAddress={contractAddress} />;
-  else if (active === 'Owners') content = <OwnersPanel onNotice={showNotice} owners={owners} threshold={threshold} />;
-  else if (active === 'Security') content = <SecuritySummary dailyLimit={dailyLimit} highValue={highValue} timelock={timelock} loading={loading} />;
-  else content = (
-    <>
-      {chainId !== null && chainId !== SEPOLIA_CHAIN_ID && !DEMO_MODE && (
-        <div className="bg-destructive/10 border border-destructive text-destructive p-4 rounded-lg flex items-center justify-between mb-6">
-          <div><strong>Wrong Network Detected</strong><p className="text-sm opacity-80">Please switch to Ethereum Sepolia to use Nexus Wallet.</p></div>
-          <button className="bg-destructive text-destructive-foreground px-4 py-2 rounded font-medium" onClick={switchNetwork}>Switch to Sepolia</button>
-        </div>
-      )}
-      <WalletBalance onSend={() => setActive('Send')} address={contractAddress} balance={balance} loading={loading} />
-      <div className="stats-grid">
-        <StatCard label="Owners" value={owners.length.toString()} hint="Active signers" icon={Users} loading={loading} />
-        <StatCard label="Required approvals" value={`${threshold} / ${owners.length}`} hint="Signature threshold" icon={Check} loading={loading} />
-        <StatCard label="Daily limit" value={`${dailyLimit} ETH`} hint="Remaining calculated" icon={Gauge} loading={loading} />
-        <StatCard label="Pending transactions" value={featuredTx && featuredTx.status !== 'Executed' && featuredTx.status !== 'Cancelled' ? '1' : '0'} hint="Need your attention" icon={ReceiptText} loading={loading} />
-      </div>
-      <div className="content-grid">
-        <TransactionCard onNotice={showNotice} tx={featuredTx} owners={owners} contractAddress={contractAddress} reload={loadData} />
-        <SecuritySummary dailyLimit={dailyLimit} highValue={highValue} timelock={timelock} loading={loading} />
-      </div>
-      <OwnersPanel onNotice={showNotice} owners={owners} threshold={threshold} />
-      <History events={events} />
-    </>
-  );
+  const title = active === 'Dashboard' ? 'Good morning' : active; 
 
   return (
-    <main className="app-shell">
+    <main className="app-shell flex text-foreground font-sans">
       <ParticleBackground />
-      <aside className="sidebar">
-        <Logo />
-        <div className="sidebar-label">WORKSPACE</div>
-        <nav>
+      <aside className="w-64 border-r border-border bg-background/80 backdrop-blur-xl h-screen flex flex-col fixed left-0 top-0 z-20">
+        <div className="p-6 border-b border-border"><Logo /></div>
+        <div className="px-6 py-4 text-[10px] font-bold tracking-widest text-muted-foreground">MAIN MENU</div>
+        <nav className="flex-1 px-4 space-y-1">
           {nav.map(([label, Icon]) => (
-            <button key={label} className={active === label ? 'active' : ''} onClick={() => setActive(label)}>
-              <Icon size={17} /><span>{label}</span>
-              {label === 'Approvals' && featuredTx && featuredTx.status !== 'Executed' && <span className="nav-count">1</span>}
+            <button key={label} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${active === label ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'}`} onClick={() => setActive(label)}>
+              <Icon size={18} /><span>{label}</span>
             </button>
           ))}
         </nav>
-        <div className="sidebar-bottom">
-          <button className="demo-card text-left" onClick={() => setWizard(true)}>
-            <Sparkles size={16} /><div><strong>{DEMO_MODE ? 'Demo' : 'Live'} environment</strong><span>Launch deployment wizard</span></div>
-          </button>
-          <div className="profile">
-            <div className="profile-avatar">S1</div>
-            <div className="overflow-hidden">
-              <strong>Signer</strong>
-              <span className="truncate w-24 block">{account || 'Not connected'}</span>
+        <div className="p-4 border-t border-border bg-muted/10">
+          <div className="text-xs text-muted-foreground mb-3 text-center">Network: Sepolia</div>
+          {connected ? (
+            <div className="flex items-center gap-3 p-3 bg-card border border-border rounded-xl">
+              <div className="w-8 h-8 rounded-full bg-primary/20 text-primary flex items-center justify-center font-bold text-xs">S1</div>
+              <div className="overflow-hidden text-left">
+                <div className="text-xs font-semibold">Connected</div>
+                <div className="text-xs text-muted-foreground truncate">{account.slice(0,6)}...{account.slice(-4)}</div>
+              </div>
             </div>
-            <MoreHorizontal size={16} className="ml-auto text-muted-foreground flex-shrink-0" />
-          </div>
+          ) : (
+            <button className="primary-button w-full justify-center" onClick={connect}>Connect Wallet</button>
+          )}
         </div>
       </aside>
 
-      <div className="main-area">
-        <header className="topbar">
-          <button className="mobile-menu icon-button"><Menu size={19} /></button>
-          <div className="topbar-heading"><div className="eyebrow">OVERVIEW</div><h1>{title}</h1></div>
-          <div className="topbar-actions">
+      <div className="flex-1 ml-0 md:ml-64 min-h-screen relative z-10 flex flex-col">
+        <header className="h-20 border-b border-border bg-background/80 backdrop-blur-md sticky top-0 z-10 flex items-center justify-between px-8">
+          <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
+          <div className="flex items-center gap-4">
             <NetworkStatus chainId={chainId} />
-            <button className="icon-button"><Bell size={17} /></button>
-            {connected ? (
-              <div className="wallet-chip"><span className="status-dot" /> {account.slice(0,6)}...{account.slice(-4)}</div>
-            ) : (
-              <button className="primary-button" onClick={connect}>Connect EOA</button>
-            )}
+            <button className="demo-card text-xs flex items-center gap-2 p-2 border border-primary/20 bg-primary/5 rounded-lg text-primary hover:bg-primary/10 transition-colors" onClick={() => { setWizard(true); }}>
+              <Sparkles size={14} /> Deploy Wizard
+            </button>
           </div>
         </header>
 
-        <div className="page-content">
-          <div className="mobile-brand"><Logo /></div>
-          <div className="mobile-network"><NetworkStatus chainId={chainId} /></div>
-          <div className="notice-strip"><Sparkles size={14} /> {DEMO_MODE_NOTICE}</div>
-          {content}
+        <div className="p-8 max-w-6xl mx-auto w-full flex-1">
+          {chainId !== null && chainId !== SEPOLIA_CHAIN_ID && !DEMO_MODE && (
+            <div className="bg-destructive/10 border border-destructive text-destructive p-4 rounded-lg flex items-center justify-between mb-8 shadow-sm">
+              <div><strong className="block mb-1">Wrong Network Detected</strong><p className="text-sm opacity-90">Please switch to Ethereum Sepolia to use Nexus Wallet.</p></div>
+              <button className="bg-destructive text-destructive-foreground px-4 py-2 rounded-lg font-medium text-sm hover:brightness-110 transition-all" onClick={switchNetwork}>Switch to Sepolia</button>
+            </div>
+          )}
+
+          {active === 'Dashboard' && <Dashboard contractAddress={contractAddress} balance={balance} owners={owners} threshold={threshold} dailyLimit={dailyLimit} events={events} featuredTx={featuredTx} loading={loading} reload={loadData} onNotice={showNotice} onWizard={() => setWizard(true)} />}
+          {active === 'Wallet' && <WalletPage contractAddress={contractAddress} balance={balance} owners={owners} threshold={threshold} dailyLimit={dailyLimit} highValue={highValue} timelock={timelock} loading={loading} />}
+          {active === 'Send' && <SendPage onNotice={showNotice} contractAddress={contractAddress} balance={balance} reload={loadData} />}
+          {active === 'Receive' && <ReceivePage contractAddress={contractAddress} />}
+          {active === 'Transactions' && <TransactionsPage events={events} contractAddress={contractAddress} featuredTx={featuredTx} />}
+          {active === 'Owners' && <OwnersPage owners={owners} threshold={threshold} contractAddress={contractAddress} account={account} />}
         </div>
       </div>
 
-      <div className="bottom-nav">
-        {nav.slice(0, 5).map(([label, Icon]) => (
-          <button className={active === label ? 'active' : ''} key={label} onClick={() => setActive(label)}>
-            <Icon size={17} /><span>{label}</span>
+      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur-xl border-t border-border flex justify-around p-2 z-20 pb-safe">
+        {nav.map(([label, Icon]) => (
+          <button key={label} className={`flex flex-col items-center p-2 text-[10px] ${active === label ? 'text-primary' : 'text-muted-foreground'}`} onClick={() => setActive(label)}>
+            <Icon size={20} className="mb-1" />
+            <span>{label}</span>
           </button>
         ))}
       </div>
 
-      {notice && <div className="toast"><Check size={15} /> {notice}</div>}
-      {wizard && <Wizard onClose={() => setWizard(false)} onDeploySuccess={(addr) => { setContractAddress(addr); setWizard(false); showNotice('Wallet active!') }} />}
+      {notice && <div className="fixed bottom-24 md:bottom-8 right-8 flex items-center gap-2 bg-card border border-primary/30 text-primary px-4 py-3 rounded-lg shadow-lg z-50 animate-in slide-in-from-bottom-5"><Check size={16} /> {notice}</div>}
+      
+      {wizard && <Wizard onClose={() => setWizard(false)} onDeploySuccess={(address) => { setContractAddress(address); loadData(); }} />}
     </main>
   )
 }

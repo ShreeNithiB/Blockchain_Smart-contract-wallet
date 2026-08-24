@@ -1,12 +1,13 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 @import 'tailwindcss';
 @import 'tw-animate-css';
 @import 'shadcn/tailwind.css';
 @custom-variant dark (&:is(.dark *));
 @theme inline { --color-background: var(--background); --color-foreground: var(--foreground); --color-card: var(--card); --color-card-foreground: var(--card-foreground); --color-primary: var(--primary); --color-primary-foreground: var(--primary-foreground); --color-muted: var(--muted); --color-muted-foreground: var(--muted-foreground); --color-border: var(--border); --color-input: var(--input); --radius-lg: 0.75rem; --radius-xl: 1rem; }
-:root { color-scheme: dark; --background: #080b10; --foreground: #e7edf2; --card: #11161d; --card-foreground: #e7edf2; --primary: #5be0bb; --primary-foreground: #06110f; --muted: #151c24; --muted-foreground: #7e8a96; --border: #222b34; --input: #151c24; --warning: #d9b979; --danger: #e17777; --radius: 0.75rem; }
+:root { color-scheme: dark; --background: #080b10; --foreground: #f0f4f8; --card: #11161d; --card-foreground: #f0f4f8; --primary: #5be0bb; --primary-foreground: #06110f; --muted: #1a222c; --muted-foreground: #a0aec0; --border: #2d3748; --input: #1a222c; --warning: #d9b979; --danger: #e17777; --radius: 0.75rem; }
 * { box-sizing: border-box; border-color: var(--border); }
 html { background: var(--background); }
-body { margin: 0; background: var(--background); color: var(--foreground); font-family: Arial, sans-serif; }
+body { margin: 0; background: var(--background); color: var(--foreground); font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased; letter-spacing: -0.01em; }
 button, input { font: inherit; } button { cursor: pointer; }
 .app-shell { min-height: 100vh; background: radial-gradient(circle at 82% 0%, rgba(91,224,187,.07), transparent 30%), var(--background); position: relative; overflow-x: hidden; }
 .sidebar { width: 242px; border-right: 1px solid var(--border); padding: 28px 16px 18px; display:flex; flex-direction:column; position:fixed; inset:0 auto 0 0; z-index:5; background:rgba(8,11,16,.94); backdrop-filter: blur(18px); }
