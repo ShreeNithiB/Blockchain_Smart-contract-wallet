@@ -7,6 +7,7 @@ export type WalletTransaction = { id: string; type: 'Send'; amount: string; reci
 
 export type WalletService = {
   connectWallet: () => Promise<{ address: string; network: string; chainId: number; error?: string }>
+  getUserWallets: (factoryAddress: string, userAddress: string) => Promise<string[]>
   getWalletBalance: (address?: string) => Promise<{ eth: string; usd: string }>
   getOwners: (contractAddress: string) => Promise<WalletOwner[]>
   getThreshold: (contractAddress: string) => Promise<number>
@@ -23,7 +24,7 @@ export type WalletService = {
   approveTransaction: (contractAddress: string, id: number) => Promise<{ demo: boolean; message: string; hash?: string; error?: string }>
   revokeApproval: (contractAddress: string, id: number) => Promise<{ demo: boolean; message: string; hash?: string; error?: string }>
   executeTransaction: (contractAddress: string, id: number) => Promise<{ demo: boolean; message: string; hash?: string; error?: string }>
-  deployWallet: (owners: string[], threshold: number, dailyLimit: string, highValueThreshold: string, timelockDuration: number) => Promise<{ demo: boolean; address?: string; hash?: string; error?: string; message: string }>
+  deployWallet: (factoryAddress: string, owners: string[], threshold: number, dailyLimit: string, highValueThreshold: string, timelockDuration: number) => Promise<{ demo: boolean; address?: string; hash?: string; error?: string; message: string }>
 }
 
 const demoOwners: WalletOwner[] = [
@@ -54,6 +55,12 @@ const getContract = async (contractAddress: string, providerOrSigner: ethers.Pro
     providerOrSigner
   ) as unknown as ProgrammableMultiSigWallet;
 }
+
+const factoryAbi = [
+  "function createWallet(address[] memory _owners, uint256 _threshold, uint256 _dailyLimit, uint256 _highValueThreshold, uint256 _timelockDuration) external returns (address)",
+  "function getUserWallets(address user) external view returns (address[] memory)",
+  "event WalletCreated(address indexed creator, address indexed wallet, address indexed implementation)"
+];
 
 const handleError = (e: any): string => {
   console.error(e);
@@ -86,6 +93,20 @@ export const walletService: WalletService = {
       };
     } catch (e: any) {
       return { address: '', network: '', chainId: 0, error: handleError(e) };
+    }
+  },
+
+  getUserWallets: async (factoryAddress: string, userAddress: string) => {
+    if (DEMO_MODE) return ['0x1111111111111111111111111111111111111111'];
+    const provider = getProvider();
+    if (!provider || !factoryAddress || !userAddress) return [];
+    try {
+      const contract = new ethers.Contract(factoryAddress, factoryAbi, provider);
+      const wallets = await contract.getUserWallets(userAddress);
+      return Array.from(wallets) as string[];
+    } catch (e) {
+      console.error("Error fetching user wallets:", e);
+      return [];
     }
   },
 
@@ -250,8 +271,8 @@ export const walletService: WalletService = {
     if (!provider || !contractAddress) return [];
     try {
       const contract = await getContract(contractAddress, provider);
-      const events = await contract.queryFilter('*', -10000); // Last 10000 blocks
-      return events.map(e => ({ name: 'fragment' in e ? e.fragment.name : 'Unknown', transactionHash: e.transactionHash, blockNumber: e.blockNumber }));
+      const events = await contract.queryFilter('*', -5000); // Last 5000 blocks to avoid RPC limit
+      return events.map((e: any) => ({ name: 'fragment' in e ? e.fragment.name : 'Unknown', transactionHash: e.transactionHash, blockNumber: e.blockNumber }));
     } catch (e) {
       console.error(e);
       return [];
@@ -329,15 +350,19 @@ export const walletService: WalletService = {
     }
   },
 
-  deployWallet: async (owners, threshold, dailyLimit, highValueThreshold, timelockDuration) => {
+  deployWallet: async (factoryAddress, owners, threshold, dailyLimit, highValueThreshold, timelockDuration) => {
     if (DEMO_MODE) return demoResponse('Demo only: Wallet deployment simulated.');
+    if (!factoryAddress || factoryAddress.trim() === '') {
+      return { demo: false, message: '', error: 'WalletFactory address is missing! Please deploy the Factory and set NEXT_PUBLIC_FACTORY_ADDRESS in frontend/.env' };
+    }
     try {
       const provider = getProvider();
       if (!provider) throw new Error("No web3 provider");
       const signer = await provider.getSigner();
       
-      const factory = new ethers.ContractFactory(artifact.abi, artifact.bytecode, signer);
-      const contract = await factory.deploy(
+      const factory = new ethers.Contract(factoryAddress, factoryAbi, signer);
+      
+      const tx = await factory.createWallet(
         owners,
         threshold,
         ethers.parseEther(dailyLimit),
@@ -345,9 +370,21 @@ export const walletService: WalletService = {
         timelockDuration
       );
       
-      await contract.waitForDeployment();
+      const receipt = await tx.wait();
       
-      return { demo: false, message: 'Wallet deployed successfully!', address: await contract.getAddress(), hash: contract.deploymentTransaction()?.hash };
+      // Parse WalletCreated event to get the new wallet address
+      let newAddress = '';
+      for (const log of receipt.logs) {
+        try {
+          const parsed = factory.interface.parseLog({ topics: [...log.topics], data: log.data });
+          if (parsed?.name === 'WalletCreated') {
+            newAddress = parsed.args.wallet;
+            break;
+          }
+        } catch(e) {}
+      }
+      
+      return { demo: false, message: 'Wallet deployed successfully!', address: newAddress, hash: tx.hash };
     } catch (e: any) {
       return { demo: false, message: '', error: handleError(e) };
     }

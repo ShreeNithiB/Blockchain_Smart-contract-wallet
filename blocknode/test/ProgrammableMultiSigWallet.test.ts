@@ -12,13 +12,30 @@ describe("ProgrammableMultiSigWallet", function () {
     const timelockDuration = 60; // 60 seconds
 
     const Wallet = await ethers.getContractFactory("ProgrammableMultiSigWallet");
-    const wallet = await Wallet.deploy(
+    const impl = await Wallet.deploy();
+    await impl.waitForDeployment();
+    
+    const Factory = await ethers.getContractFactory("WalletFactory");
+    const factory = await Factory.deploy(await impl.getAddress());
+    await factory.waitForDeployment();
+    
+    const tx = await factory.createWallet(
       owners,
       threshold,
       dailyLimit,
       highValueThreshold,
       timelockDuration
     );
+    const receipt = await tx.wait();
+    
+    // Find the WalletCreated event
+    const event = receipt?.logs.find(
+      (log) => log.topics[0] === factory.interface.getEvent("WalletCreated")?.topicHash
+    );
+    if (!event) throw new Error("WalletCreated event not found");
+    const cloneAddress = factory.interface.decodeEventLog("WalletCreated", event.data, event.topics).wallet;
+    
+    const wallet = Wallet.attach(cloneAddress) as any;
 
     // Fund the wallet
     await owner1.sendTransaction({

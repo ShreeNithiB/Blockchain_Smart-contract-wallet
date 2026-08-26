@@ -2,13 +2,14 @@
 pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 
 /**
  * @title ProgrammableMultiSigWallet
  * @dev A smart contract wallet requiring multiple signatures for transactions,
  *      featuring daily limits, high-value thresholds, timelocks, expiry, and emergency freeze.
  */
-contract ProgrammableMultiSigWallet is ReentrancyGuard {
+contract ProgrammableMultiSigWallet is Initializable, ReentrancyGuard {
     // --- Events ---
     event OwnerAdded(address indexed owner);
     event OwnerRemoved(address indexed owner);
@@ -109,14 +110,19 @@ contract ProgrammableMultiSigWallet is ReentrancyGuard {
         _;
     }
 
-    // --- Constructor ---
-    constructor(
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
+    // --- Initializer ---
+    function initialize(
         address[] memory _owners,
         uint256 _threshold,
         uint256 _dailyLimit,
         uint256 _highValueThreshold,
         uint256 _timelockDuration
-    ) {
+    ) public initializer {
         if (_owners.length == 0) revert InvalidOwner();
         if (_threshold == 0 || _threshold > _owners.length) revert InvalidThreshold();
 

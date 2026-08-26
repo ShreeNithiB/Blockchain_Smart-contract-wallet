@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useMemo } from 'react'
-import { ArrowDownLeft, ArrowUpRight, Bell, Check, ChevronRight, CircleHelp, Copy, ExternalLink, Fingerprint, Gauge, GitBranch, KeyRound, LayoutDashboard, LockKeyhole, Menu, MoreHorizontal, Network, Plus, QrCode, ReceiptText, Send, Settings, ShieldCheck, Sparkles, Users, WalletCards, X, Loader2, Search, Filter, LogOut } from 'lucide-react'
+import { ArrowDownLeft, ArrowUpRight, Bell, Check, ChevronRight, CircleHelp, Copy, ExternalLink, Fingerprint, Gauge, GitBranch, KeyRound, LayoutDashboard, LockKeyhole, Menu, MoreHorizontal, Network, Plus, QrCode, ReceiptText, Send, Settings, ShieldCheck, Sparkles, Users, WalletCards, X, Loader2, Search, Filter, LogOut, ChevronDown } from 'lucide-react'
 import { DEMO_MODE, DEMO_MODE_NOTICE, walletService, type WalletOwner, type WalletTransaction, SEPOLIA_CHAIN_ID } from '@/lib/services/wallet'
 import { ethers } from 'ethers'
 
@@ -435,7 +435,7 @@ function Wizard({ onClose, onDeploySuccess }: { onClose: () => void, onDeploySuc
     const unique = new Set(valid);
     if (unique.size !== valid.length) return 'Duplicate owners are not allowed.';
     const t = parseInt(threshold);
-    if (isNaN(t) || t < 1 || t > valid.length) return `Threshold must be between 1 and ${valid.length}.`;
+    if (isNaN(t) || t < 1 || t > valid.length) return `Threshold cannot exceed the number of owners (${valid.length}). Please add more owners.`;
     return null;
   }
 
@@ -446,13 +446,14 @@ function Wizard({ onClose, onDeploySuccess }: { onClose: () => void, onDeploySuc
       setStep(3); // skip 2 as connection checks network implicitly usually, but we can enforce it.
     } else if (step === 3 || step === 4) {
       const err = validateOwners();
-      if (err && step === 4) { alert(err); return; }
+      if (err) { alert(err); return; }
       setStep(step + 1);
     } else if (step === 7) {
       setStep(8);
       setLoading(true);
       const validOwners = owners.filter(o => o.trim() !== '');
-      const res = await walletService.deployWallet(validOwners, parseInt(threshold), "0.5", "1.0", 60);
+      const factoryAddress = process.env.NEXT_PUBLIC_FACTORY_ADDRESS || '';
+      const res = await walletService.deployWallet(factoryAddress, validOwners, parseInt(threshold), "0.5", "1.0", 60);
       setLoading(false);
       
       if (res.error) {
@@ -464,7 +465,8 @@ function Wizard({ onClose, onDeploySuccess }: { onClose: () => void, onDeploySuc
       setStep(9);
       setTimeout(() => { setStep(11); }, 2000); 
     } else if (step === 11) {
-      setStep(12);
+      onDeploySuccess(deployRes?.address || '');
+      onClose();
     } else {
       setStep(step + 1);
     }
@@ -552,8 +554,7 @@ function Wizard({ onClose, onDeploySuccess }: { onClose: () => void, onDeploySuc
               {loading ? <Loader2 size={15} className="animate-spin" /> : step === 6 ? 'Deploy Wallet' : step === 7 ? 'Proceed to MetaMask' : 'Continue'} <ChevronRight size={15} />
             </button>
           )}
-          {step === 11 && <button className="primary-button mt-6 w-full justify-center" onClick={handleNext}>Finish <ChevronRight size={15}/></button>}
-          {step === 12 && <button className="primary-button mt-6 w-full justify-center" onClick={() => { onDeploySuccess(deployRes?.address || ''); onClose(); }}>Return to Dashboard</button>}
+          {step === 11 && <button className="primary-button mt-6 w-full justify-center" onClick={handleNext}>Finish & Use Wallet <ChevronRight size={15}/></button>}
         </div>
       </div>
     </div></div>
@@ -570,7 +571,9 @@ export default function Page() {
   const [chainId, setChainId] = useState<number | null>(null);
   
   // Blockchain State
-  const [contractAddress, setContractAddress] = useState(process.env.NEXT_PUBLIC_WALLET_CONTRACT_ADDRESS || '');
+  const factoryAddress = process.env.NEXT_PUBLIC_FACTORY_ADDRESS || '';
+  const [userWallets, setUserWallets] = useState<string[]>([]);
+  const [contractAddress, setContractAddress] = useState('');
   const [balance, setBalance] = useState('0');
   const [owners, setOwners] = useState<WalletOwner[]>([]);
   const [threshold, setThreshold] = useState(1);
@@ -637,11 +640,19 @@ export default function Page() {
 
   useEffect(() => {
     if (connected && (chainId === SEPOLIA_CHAIN_ID || DEMO_MODE)) {
+      if (account && factoryAddress) {
+        walletService.getUserWallets(factoryAddress, account).then(wallets => {
+          setUserWallets(wallets);
+          if (wallets.length > 0 && !contractAddress) {
+            setContractAddress(wallets[0]);
+          }
+        });
+      }
       loadData();
       const interval = setInterval(loadData, 15000); 
       return () => clearInterval(interval);
     }
-  }, [connected, chainId, contractAddress]);
+  }, [connected, chainId, contractAddress, account, factoryAddress]);
 
   const title = active === 'Dashboard' ? 'Dashboard' : active; 
 
@@ -681,6 +692,17 @@ export default function Page() {
         <header className="h-20 border-b border-border bg-background/80 backdrop-blur-md sticky top-0 z-10 flex items-center justify-between px-8">
           <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
           <div className="flex items-center gap-4">
+            {userWallets.length > 1 && (
+              <select 
+                className="bg-card border border-border text-sm font-medium rounded-lg px-3 py-2 outline-none cursor-pointer hover:border-primary transition-colors"
+                value={contractAddress}
+                onChange={(e) => setContractAddress(e.target.value)}
+              >
+                {userWallets.map((w, i) => (
+                  <option key={w} value={w}>Wallet {i + 1} ({w.slice(0,6)}...{w.slice(-4)})</option>
+                ))}
+              </select>
+            )}
             <NetworkStatus chainId={chainId} />
             <button className="demo-card text-xs flex items-center gap-2 p-2 border border-primary/20 bg-primary/5 rounded-lg text-primary hover:bg-primary/10 transition-colors" onClick={() => { setWizard(true); }}>
               <Sparkles size={14} /> Deploy Wizard
@@ -716,7 +738,13 @@ export default function Page() {
 
       {notice && <div className="fixed bottom-24 md:bottom-8 right-8 flex items-center gap-2 bg-card border border-primary/30 text-primary px-4 py-3 rounded-lg shadow-lg z-50 animate-in slide-in-from-bottom-5"><Check size={16} /> {notice}</div>}
       
-      {wizard && <Wizard onClose={() => setWizard(false)} onDeploySuccess={(address) => { setContractAddress(address); loadData(); }} />}
+      {wizard && <Wizard onClose={() => setWizard(false)} onDeploySuccess={(address) => { 
+        setContractAddress(address); 
+        if (account && factoryAddress) {
+          walletService.getUserWallets(factoryAddress, account).then(setUserWallets);
+        }
+        loadData(); 
+      }} />}
     </main>
   )
 }

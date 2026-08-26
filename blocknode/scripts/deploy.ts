@@ -1,39 +1,35 @@
 import { ethers, network } from "hardhat";
 
 async function main() {
-  const [deployer] = await ethers.getSigners();
+  const signers = await ethers.getSigners();
+  if (signers.length === 0) {
+    throw new Error("❌ No deployer account found! You MUST paste your MetaMask Private Key into blocknode/.env under DEPLOYER_PRIVATE_KEY to deploy.");
+  }
+  const deployer = signers[0];
 
   console.log("Deploying contracts with the account:", deployer.address);
 
-  // Configuration for deployment
-  // In a real scenario, these might be read from a JSON file or env
-  const owners = [deployer.address]; 
-  const threshold = 1; 
-  const dailyLimit = ethers.parseEther("0.5");
-  const highValueThreshold = ethers.parseEther("1.0");
-  const timelockDuration = 60; // 60 seconds
-
+  // 1. Deploy Implementation
+  console.log("Deploying ProgrammableMultiSigWallet implementation...");
   const Wallet = await ethers.getContractFactory("ProgrammableMultiSigWallet");
-  const wallet = await Wallet.deploy(
-    owners,
-    threshold,
-    dailyLimit,
-    highValueThreshold,
-    timelockDuration
-  );
+  const walletImpl = await Wallet.deploy();
+  await walletImpl.waitForDeployment();
+  const implAddress = await walletImpl.getAddress();
+  console.log("Implementation deployed to:", implAddress);
 
-  await wallet.waitForDeployment();
-
-  const address = await wallet.getAddress();
-  const txHash = wallet.deploymentTransaction()?.hash;
+  // 2. Deploy Factory
+  console.log("Deploying WalletFactory...");
+  const Factory = await ethers.getContractFactory("WalletFactory");
+  const factory = await Factory.deploy(implAddress);
+  await factory.waitForDeployment();
+  const factoryAddress = await factory.getAddress();
+  console.log("WalletFactory deployed to:", factoryAddress);
 
   console.log("=========================================");
-  console.log("Contract deployed to:", address);
   console.log("Network:", network.name);
   console.log("Chain ID:", network.config.chainId);
-  console.log("Deployment transaction hash:", txHash);
-  console.log("Initial owners:", owners);
-  console.log("Initial threshold:", threshold);
+  console.log("Implementation Address:", implAddress);
+  console.log("Factory Address:", factoryAddress);
   console.log("=========================================");
 }
 

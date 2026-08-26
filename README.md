@@ -1,73 +1,125 @@
-# Nexus Wallet
+# Smart Contract Wallet (Nexus)
 
-Nexus Wallet is a next-generation programmable multisig smart contract wallet built on Ethereum. It provides a highly secure, non-custodial, and user-friendly interface for managing shared funds, executing transactions, and enforcing programmable security policies.
+## Overview
+Nexus is a production-ready, highly programmable Smart Contract Wallet designed to provide a secure and flexible multi-signature experience. It enables users to deploy their own personal smart contract wallets directly from a seamless web interface. The project uses an advanced Factory + Proxy architecture (EIP-1167) to ensure gas-efficient deployments for every user.
 
 ## Features
-
-- **Multi-Signature Access Control:** Require M-of-N signatures to execute standard transactions, ensuring no single point of failure.
-- **Programmable Security Policies:**
-  - **Daily Spending Limits:** Automatically approve smaller transactions up to a predefined limit without requiring full consensus.
-  - **High-Value Thresholds & Timelocks:** Enforce mandatory waiting periods (timelocks) for large transactions, giving owners time to review or cancel suspicious activity.
-  - **Emergency Freeze:** (Upcoming) Instantly halt all non-essential contract operations in case of a security breach.
-- **Modern User Interface:** Built with Next.js, React, and Tailwind CSS, providing a sleek, responsive, and intuitive dashboard.
-- **Sepolia Testnet Support:** Fully configured for deployment and testing on the Ethereum Sepolia network.
+- **Multi-Signature Approvals:** Configure custom thresholds (M of N owners).
+- **Time-Locks & Expiry:** Ensure delayed execution for high-security transactions and automatic expiration of stale proposals.
+- **Daily Limits:** Pre-approved spending limits to allow rapid small transactions without full consensus.
+- **Dynamic User Wallets:** A global Factory contract manages and registers all user wallets automatically.
+- **Emergency Freeze:** Owners can freeze the wallet to prevent malicious activity in case of a compromise.
+- **Modern Next.js Frontend:** A glassmorphism, fully responsive dashboard and deployment wizard.
 
 ## Architecture
-
-This project is structured as a `pnpm` monorepo containing two main workspaces:
-
-- `frontend/`: The Next.js web application and UI.
-- `blocknode/`: The Hardhat environment containing the Solidity smart contracts and deployment scripts.
-
-## Prerequisites
-
-- Node.js (v18+)
-- `pnpm` package manager
-- MetaMask (or another injected web3 wallet)
-
-## Quick Start
-
-1. **Install Dependencies**
-   ```bash
-   pnpm install
-   ```
-
-2. **Environment Setup**
-   Ensure you have a `.env` file in both `frontend/` and `blocknode/` directories with your configuration.
-   
-   Example:
-   ```env
-   NEXT_PUBLIC_RPC_URL=https://rpc.sepolia.org
-   NEXT_PUBLIC_CHAIN_ID=11155111
-   NEXT_PUBLIC_USE_DEMO_MODE=false
-   
-   # After deployment, add:
-   NEXT_PUBLIC_WALLET_CONTRACT_ADDRESS=0xYourContractAddress...
-   ```
-
-3. **Start the Development Server**
-   From the root directory, run:
-   ```bash
-   pnpm run dev
-   ```
-   This will start the Next.js frontend at `http://localhost:3000`.
-
-4. **Deploy a Wallet**
-   - Connect your MetaMask to the Sepolia Testnet.
-   - Click the "Deploy Wizard" button in the dashboard.
-   - Follow the steps to configure your owners, signature threshold, and daily limits.
-   - Confirm the deployment transaction.
-   - Copy the generated contract address into your `.env` file under `NEXT_PUBLIC_WALLET_CONTRACT_ADDRESS` and restart your server.
-
-## Smart Contract Details
-
-The core logic is implemented in `ProgrammableMultiSigWallet.sol`, which leverages advanced Solidity patterns to provide a secure and gas-efficient wallet solution. 
-
-To manually compile contracts, run:
-```bash
-pnpm --filter nexus-blocknode run compile
+The application is split into two perfectly isolated responsibilities:
+```text
+Frontend (Next.js / ethers.js)
+   ↓
+WalletFactory (Sepolia)
+   ↓
+ProgrammableMultiSigWallet Proxy (User's Wallet)
+   ↓
+Blockchain
 ```
 
-## License
+### Factory Pattern
+To minimize gas costs, a single `ProgrammableMultiSigWallet` logic contract is deployed once. When a user creates a wallet, the `WalletFactory` deploys a lightweight EIP-1167 Minimal Proxy pointing to the logic contract. The Factory maps user addresses to their newly created proxies, allowing the frontend to dynamically discover any user's wallets upon connection.
 
-This project is licensed under the MIT License.
+## Tech Stack
+- **Smart Contracts:** Solidity 0.8.20, Hardhat, OpenZeppelin
+- **Frontend:** Next.js 14, React, TailwindCSS, ethers.js v6
+- **Network:** Ethereum Sepolia Testnet
+
+## Project Structure
+```text
+nexus-wallet/
+├── blocknode/       # All blockchain code (Contracts, Tests, Scripts, Hardhat config)
+├── frontend/        # Next.js Application
+├── .gitignore
+├── .env.example
+└── README.md
+```
+
+## Prerequisites
+- Node.js (v18+)
+- pnpm or npm
+- MetaMask Extension (configured for Sepolia testnet)
+- Test Sepolia ETH
+
+## Installation
+
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/ShreeNithiB/Blockchain_Smart-contract-wallet.git
+   cd Blockchain_Smart-contract-wallet
+   ```
+
+2. **Install Root Dependencies**
+   ```bash
+   npm install
+   ```
+
+3. **Install Blockchain & Frontend Dependencies**
+   ```bash
+   cd blocknode && npm install
+   cd ../frontend && npm install
+   cd ..
+   ```
+
+## Environment Variables
+Security is paramount. Never commit `.env` files or private keys.
+
+1. Copy `.env.example` to create your active `.env` file:
+   ```bash
+   cp .env.example .env
+   ```
+2. Edit `.env` and fill in your actual private key and RPC URLs.
+3. The `.env` file covers both the frontend configuration (`NEXT_PUBLIC_*`) and the blocknode deployment configuration.
+
+## Smart Contract Deployment
+
+To deploy the Master Factory to the Sepolia testnet:
+
+1. Ensure `DEPLOYER_PRIVATE_KEY` has Sepolia ETH in your `.env`.
+2. Run the deployment script from the `blocknode` directory:
+   ```bash
+   cd blocknode
+   npx hardhat compile
+   npx hardhat run scripts/deploy.ts --network sepolia
+   ```
+3. The terminal will print a **Factory Address**. Copy this address.
+
+## Frontend Setup
+
+1. Open your `.env` file at the root of the project (or inside `frontend/.env` depending on your setup).
+2. Paste the Factory Address:
+   ```env
+   NEXT_PUBLIC_FACTORY_ADDRESS=0xYourFactoryAddressHere
+   ```
+3. Start the Next.js development server:
+   ```bash
+   cd frontend
+   npm run dev
+   ```
+4. Open `http://localhost:3000` in your browser.
+
+## Testing
+Comprehensive unit tests cover the Factory and Wallet logic. To run them:
+```bash
+cd blocknode
+npx hardhat test
+```
+
+## Build
+To build the frontend for production deployment (e.g. Vercel):
+```bash
+cd frontend
+npm run build
+```
+
+## Security Notice
+🚨 **CRITICAL:** Private keys, seed phrases, wallet passwords, and environment secrets must NEVER be committed to GitHub. This repository is configured with a strict `.gitignore` to prevent `.env` files from being committed, but always double-check your commits before pushing.
+
+## License
+MIT License
