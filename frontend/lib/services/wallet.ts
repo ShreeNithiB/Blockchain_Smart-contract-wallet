@@ -246,7 +246,7 @@ export const walletService: WalletService = {
     let status: WalletTransaction['status'] = 'Pending';
     if (tx.executed) status = 'Executed';
     else if (tx.cancelled) status = 'Cancelled';
-    else if (tx.executableAt > 0n) {
+    else if (tx.executableAt > BigInt(0)) {
       if (Date.now() / 1000 >= Number(tx.executableAt)) status = 'Pending'; // ready to execute
       else status = 'Timelocked';
     } else if (Number(tx.approvalCount) < threshold) {
@@ -271,7 +271,7 @@ export const walletService: WalletService = {
     if (!provider || !contractAddress) return [];
     try {
       const contract = await getContract(contractAddress, provider);
-      const events = await contract.queryFilter('*', -5000); // Last 5000 blocks to avoid RPC limit
+      const events = await contract.queryFilter('*' as any, -5000); // Last 5000 blocks to avoid RPC limit
       return events.map((e: any) => ({ name: 'fragment' in e ? e.fragment.name : 'Unknown', transactionHash: e.transactionHash, blockNumber: e.blockNumber }));
     } catch (e) {
       console.error(e);
