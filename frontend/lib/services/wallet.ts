@@ -1,6 +1,5 @@
 import { ethers } from "ethers";
-import type { ProgrammableMultiSigWallet } from "../../../blocknode/typechain-types";
-import artifact from "../../../blocknode/artifacts/contracts/ProgrammableMultiSigWallet.sol/ProgrammableMultiSigWallet.json";
+import artifact from "../ProgrammableMultiSigWallet.json";
 
 export type WalletOwner = { id: string; label: string; address: string; role: 'Signer'; status: 'Active'; added: string; approved: boolean }
 export type WalletTransaction = { id: string; type: 'Send'; amount: string; recipient: string; approvals: number; threshold: number; status: 'Awaiting Approval' | 'Timelocked' | 'Executed' | 'Pending' | 'Cancelled'; date: string; hash?: string }
@@ -53,7 +52,7 @@ const getContract = async (contractAddress: string, providerOrSigner: ethers.Pro
     contractAddress,
     artifact.abi,
     providerOrSigner
-  ) as unknown as ProgrammableMultiSigWallet;
+  ) as any;
 }
 
 const factoryAbi = [
