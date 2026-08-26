@@ -1,4 +1,4 @@
-# Smart Contract Wallet (Nexus)
+# Smart Contract Wallet [Wallentra]
 
 ## Overview
 Nexus is a production-ready, highly programmable Smart Contract Wallet designed to provide a secure and flexible multi-signature experience. It enables users to deploy their own personal smart contract wallets directly from a seamless web interface. The project uses an advanced Factory + Proxy architecture (EIP-1167) to ensure gas-efficient deployments for every user.
