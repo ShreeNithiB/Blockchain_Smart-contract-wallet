@@ -57,3 +57,6 @@ __v0_jsx-dev-runtime.ts
 claude.md
 AGENTS.md
 agents.md
+
+.vercel
+.env*
