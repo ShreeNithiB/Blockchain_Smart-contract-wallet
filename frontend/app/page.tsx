@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo } from 'react'
 import { ArrowDownLeft, ArrowUpRight, Bell, Check, ChevronRight, CircleHelp, Copy, ExternalLink, Fingerprint, Gauge, GitBranch, KeyRound, LayoutDashboard, LockKeyhole, Menu, MoreHorizontal, Network, Plus, QrCode, ReceiptText, Send, Settings, ShieldCheck, Sparkles, Users, WalletCards, X, Loader2, Search, Filter, LogOut, ChevronDown } from 'lucide-react'
-import { DEMO_MODE, DEMO_MODE_NOTICE, walletService, type WalletOwner, type WalletTransaction, SEPOLIA_CHAIN_ID } from '@/lib/services/wallet'
+import { walletService, type WalletOwner, type WalletTransaction } from '@/lib/services/wallet'
 import { ethers } from 'ethers'
 
 const nav = [
@@ -17,7 +17,7 @@ const nav = [
 function Logo() { return <div className="flex items-center gap-3"><div className="logo-mark"><GitBranch size={18} /></div><div><div className="text-sm font-semibold tracking-[0.22em] text-foreground">NEXUS</div><div className="text-[9px] font-medium tracking-[0.28em] text-muted-foreground">WALLET</div></div></div> }
 function NetworkStatus({ chainId }: { chainId: number | null }) { 
   if (chainId === null) return null;
-  const isSepolia = chainId === SEPOLIA_CHAIN_ID || DEMO_MODE;
+  const isSepolia = chainId === 11155111;
   return (
     <div className={`network-pill ${!isSepolia ? 'bg-destructive/20 text-destructive' : ''}`}>
       <span className={`status-dot ${!isSepolia ? 'bg-destructive' : ''}`} /> 
@@ -386,6 +386,7 @@ function OwnersPage({ owners, threshold, contractAddress, account }: any) {
 function Wizard({ onClose, onDeploySuccess }: { onClose: () => void, onDeploySuccess: (address: string) => void }) { 
   const [step, setStep] = useState(1); 
   const [owners, setOwners] = useState<string[]>(['']);
+  useEffect(() => { const getConnected = async () => { if (typeof window !== 'undefined' && (window as any).ethereum) { const p = new ethers.BrowserProvider((window as any).ethereum); const accs = await p.send('eth_accounts', []); if (accs.length > 0) { setOwners([accs[0]]); setStep(3); } } }; getConnected(); }, []);
   const [threshold, setThreshold] = useState('1');
   const [loading, setLoading] = useState(false);
   const [deployRes, setDeployRes] = useState<any>(null);
@@ -401,8 +402,7 @@ function Wizard({ onClose, onDeploySuccess }: { onClose: () => void, onDeploySuc
     'Sign & Confirm', 
     'Wait for Confirmation', 
     'Retrieve Address', 
-    'Success',
-    'Save Configuration'
+    'Success'
   ]; 
 
   const activeStepGroup = Math.min(Math.floor((step - 1) / 2) + 1, 6);
@@ -441,7 +441,9 @@ function Wizard({ onClose, onDeploySuccess }: { onClose: () => void, onDeploySuc
 
   const handleNext = async () => {
     if (step === 1) {
+      setLoading(true);
       const res = await walletService.connectWallet();
+      setLoading(false);
       if (res.error) { alert(res.error); return; }
       setStep(3); // skip 2 as connection checks network implicitly usually, but we can enforce it.
     } else if (step === 3 || step === 4) {
@@ -465,8 +467,7 @@ function Wizard({ onClose, onDeploySuccess }: { onClose: () => void, onDeploySuc
       setStep(9);
       setTimeout(() => { setStep(11); }, 2000); 
     } else if (step === 11) {
-      onDeploySuccess(deployRes?.address || '');
-      onClose();
+      onDeploySuccess(deployRes?.address || ''); onClose();
     } else {
       setStep(step + 1);
     }
@@ -539,15 +540,7 @@ function Wizard({ onClose, onDeploySuccess }: { onClose: () => void, onDeploySuc
             </div>
           </div>}
 
-          {step === 12 && <div className="mt-4 p-4 border border-primary/30 bg-primary/5 rounded">
-            <h4 className="font-semibold text-primary mb-2">Final Step: Save Configuration</h4>
-            <p className="text-sm mb-4">To use your newly deployed wallet, copy the address below and paste it into your local <code className="bg-muted px-1 rounded">.env</code> file as the value for <code className="bg-muted px-1 rounded">NEXT_PUBLIC_WALLET_CONTRACT_ADDRESS</code>.</p>
-            <div className="flex gap-2 items-center">
-              <input className="flex-1 p-2 bg-background border border-border rounded font-mono text-sm" readOnly value={deployRes?.address || ''} />
-              <CopyButton value={deployRes?.address || ''} />
-            </div>
-            <p className="text-xs text-muted-foreground mt-4">Once saved, restart your development server to begin using the wallet dashboard.</p>
-          </div>}
+          
           
           {step !== 8 && step !== 9 && step !== 11 && step !== 12 && (
             <button className="primary-button mt-6 w-full justify-center" onClick={handleNext} disabled={loading}>
@@ -562,6 +555,7 @@ function Wizard({ onClose, onDeploySuccess }: { onClose: () => void, onDeploySuc
 }
 
 // MAIN PAGE COMPONENT
+
 export default function Page() { 
   const [active, setActive] = useState('Dashboard'); 
   const [notice, setNotice] = useState(''); 
@@ -583,19 +577,67 @@ export default function Page() {
   const [txCount, setTxCount] = useState(0);
   const [featuredTx, setFeaturedTx] = useState<WalletTransaction | null>(null);
   const [events, setEvents] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [isConnecting, setIsConnecting] = useState(false);
 
   const showNotice = (message: string) => { setNotice(message); setTimeout(() => setNotice(''), 3800) }; 
 
+  // Initialize and check connection
+  useEffect(() => {
+    const checkConnection = async () => {
+      if (typeof window !== 'undefined' && (window as any).ethereum) {
+        try {
+          const provider = new ethers.BrowserProvider((window as any).ethereum);
+          const accounts = await provider.send("eth_accounts", []);
+          if (accounts.length > 0) {
+            const network = await provider.getNetwork();
+            setAccount(accounts[0]);
+            setChainId(Number(network.chainId));
+            setConnected(true);
+          }
+        } catch(e) {}
+      }
+    };
+    checkConnection();
+
+    const handleAccountsChanged = (accounts: string[]) => {
+      if (accounts.length === 0) {
+        setConnected(false);
+        setAccount('');
+        setContractAddress('');
+        setUserWallets([]);
+      } else {
+        setAccount(accounts[0]);
+        setConnected(true);
+      }
+    };
+    const handleChainChanged = (newChainId: string) => {
+      setChainId(parseInt(newChainId, 16));
+    };
+
+    if (typeof window !== 'undefined' && (window as any).ethereum) {
+      (window as any).ethereum.on('accountsChanged', handleAccountsChanged);
+      (window as any).ethereum.on('chainChanged', handleChainChanged);
+    }
+
+    return () => {
+      if (typeof window !== 'undefined' && (window as any).ethereum) {
+        (window as any).ethereum.removeListener('accountsChanged', handleAccountsChanged);
+        (window as any).ethereum.removeListener('chainChanged', handleChainChanged);
+      }
+    }
+  }, []);
+
   const connect = async () => {
+    setIsConnecting(true);
     const res = await walletService.connectWallet();
+    setIsConnecting(false);
     if (res.error) showNotice(res.error);
     else {
       setConnected(true);
       setAccount(res.address);
       setChainId(res.chainId);
-      if (DEMO_MODE) showNotice('Demo wallet connected.');
-      else showNotice('Connected to Sepolia.');
+      showNotice('Connected to Wallet.');
     }
   }
 
@@ -603,56 +645,91 @@ export default function Page() {
     setConnected(false);
     setAccount('');
     setChainId(null);
+    setContractAddress('');
+    setUserWallets([]);
     showNotice('Wallet disconnected.');
   }
 
   const switchNetwork = async () => {
-    try {
-      if ((window as any).ethereum) {
-        await (window as any).ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: '0xaa36a7' }] });
-        connect();
-      }
-    } catch (e) {
-      showNotice('Failed to switch network');
-    }
+    setIsConnecting(true);
+    const res = await walletService.switchNetwork();
+    setIsConnecting(false);
+    if (res.error) showNotice(res.error);
   }
 
   const loadData = async () => {
+    if (!contractAddress) return;
     setLoading(true);
-    if (contractAddress) {
+    try {
       const bal = await walletService.getWalletBalance(contractAddress);
       setBalance(bal.eth);
-      setOwners(await walletService.getOwners(contractAddress));
-      setThreshold(await walletService.getThreshold(contractAddress));
-      setDailyLimit(await walletService.getDailyLimit(contractAddress));
-      setHighValue(await walletService.getHighValueThreshold(contractAddress));
-      setTimelock(await walletService.getTimelockDuration(contractAddress));
+      
+      const own = await walletService.getOwners(contractAddress);
+      setOwners(own);
+      
+      const thr = await walletService.getThreshold(contractAddress);
+      setThreshold(thr);
+      
+      const dl = await walletService.getDailyLimit(contractAddress);
+      setDailyLimit(dl);
+      
+      const hv = await walletService.getHighValueThreshold(contractAddress);
+      setHighValue(hv);
+      
+      const tl = await walletService.getTimelockDuration(contractAddress);
+      setTimelock(tl);
       
       const count = await walletService.getTransactionCount(contractAddress);
       setTxCount(count);
+      
       if (count > 0) {
-        setFeaturedTx(await walletService.getTransaction(contractAddress, count - 1));
+        const tx = await walletService.getTransaction(contractAddress, count - 1);
+        setFeaturedTx(tx);
+      } else {
+        setFeaturedTx(null);
       }
-      setEvents(await walletService.getHistoryEvents(contractAddress));
-    }
+      
+      const evs = await walletService.getHistoryEvents(contractAddress);
+      setEvents(evs);
+    } catch(e) {}
     setLoading(false);
   }
 
+  // Effect to load user wallets when account changes
   useEffect(() => {
-    if (connected && (chainId === SEPOLIA_CHAIN_ID || DEMO_MODE)) {
-      if (account && factoryAddress) {
-        walletService.getUserWallets(factoryAddress, account).then(wallets => {
-          setUserWallets(wallets);
-          if (wallets.length > 0 && !contractAddress) {
-            setContractAddress(wallets[0]);
-          }
-        });
-      }
+    if (connected && chainId === 11155111 && account && factoryAddress) {
+      setLoading(true);
+      walletService.getUserWallets(factoryAddress, account).then(wallets => {
+        setUserWallets(wallets);
+        if (wallets.length > 0) {
+          setContractAddress(wallets[0]);
+          setActive('Dashboard');
+        } else {
+          setContractAddress('');
+        }
+        setLoading(false);
+      });
+    } else {
+      setContractAddress('');
+      setUserWallets([]);
+    }
+  }, [connected, chainId, account, factoryAddress]);
+
+  // Effect to load data when contractAddress changes
+  useEffect(() => {
+    if (contractAddress) {
       loadData();
       const interval = setInterval(loadData, 15000); 
       return () => clearInterval(interval);
     }
-  }, [connected, chainId, contractAddress, account, factoryAddress]);
+  }, [contractAddress]);
+
+  const handleDeploySuccess = (newAddress: string) => {
+    setContractAddress(newAddress);
+    setUserWallets([newAddress, ...userWallets]);
+    setActive('Dashboard');
+    setWizard(false);
+  };
 
   const title = active === 'Dashboard' ? 'Dashboard' : active; 
 
@@ -683,7 +760,9 @@ export default function Page() {
               </button>
             </div>
           ) : (
-            <button className="primary-button w-full justify-center" onClick={connect}>Connect Wallet</button>
+            <button className="primary-button w-full justify-center" onClick={connect} disabled={isConnecting}>
+              {isConnecting ? <Loader2 size={16} className="animate-spin" /> : 'Connect Wallet'}
+            </button>
           )}
         </div>
       </aside>
@@ -711,7 +790,7 @@ export default function Page() {
         </header>
 
         <div className="p-8 max-w-6xl mx-auto w-full flex-1">
-          {chainId !== null && chainId !== SEPOLIA_CHAIN_ID && !DEMO_MODE && (
+          {chainId !== null && chainId !== 11155111 && !DEMO_MODE && (
             <div className="bg-destructive/10 border border-destructive text-destructive p-4 rounded-lg flex items-center justify-between mb-8 shadow-sm">
               <div><strong className="block mb-1">Wrong Network Detected</strong><p className="text-sm opacity-90">Please switch to Ethereum Sepolia to use Nexus Wallet.</p></div>
               <button className="bg-destructive text-destructive-foreground px-4 py-2 rounded-lg font-medium text-sm hover:brightness-110 transition-all" onClick={switchNetwork}>Switch to Sepolia</button>

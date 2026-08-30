@@ -5,7 +5,9 @@ export type WalletOwner = { id: string; label: string; address: string; role: 'S
 export type WalletTransaction = { id: string; type: 'Send'; amount: string; recipient: string; approvals: number; threshold: number; status: 'Awaiting Approval' | 'Timelocked' | 'Executed' | 'Pending' | 'Cancelled'; date: string; hash?: string }
 
 export type WalletService = {
-  connectWallet: () => Promise<{ address: string; network: string; chainId: number; error?: string }>
+  connectWallet: () => Promise<{ address: string; network: string; chainId: number; error?: string 
+  switchNetwork: () => Promise<{ error?: string }>
+}>
   getUserWallets: (factoryAddress: string, userAddress: string) => Promise<string[]>
   getWalletBalance: (address?: string) => Promise<{ eth: string; usd: string }>
   getOwners: (contractAddress: string) => Promise<WalletOwner[]>
@@ -31,12 +33,7 @@ const demoOwners: WalletOwner[] = [
   { id: '2', label: 'Owner 2', address: '0x92...C42', role: 'Signer', status: 'Active', added: 'Mar 12, 2024', approved: true },
   { id: '3', label: 'Owner 3', address: '0x31...F88', role: 'Signer', status: 'Active', added: 'Mar 12, 2024', approved: false },
 ]
-const demoTransaction: WalletTransaction = { id: '#0042', type: 'Send', amount: '0.25 ETH', recipient: '0x83A2...91B2', approvals: 2, threshold: 3, status: 'Awaiting Approval', date: 'Today, 10:42 AM' }
-const demoResponse = (message: string) => Promise.resolve({ demo: true, message })
 
-// Environment variables
-export const DEMO_MODE = false; // Forced Live Mode
-export const SEPOLIA_CHAIN_ID = 11155111;
 
 // Blockchain helpers
 const getProvider = () => {
@@ -75,8 +72,42 @@ const handleError = (e: any): string => {
 }
 
 export const walletService: WalletService = {
+
+  switchNetwork: async () => {
+    const provider = getProvider();
+    if (!provider || !(window as any).ethereum) return { error: 'MetaMask not installed' };
+    try {
+      await (window as any).ethereum.request({
+        method: 'wallet_switchEthereumChain',
+        params: [{ chainId: '0xaa36a7' }], // Sepolia chain ID
+      });
+      return {};
+    } catch (switchError: any) {
+      if (switchError.code === 4902) {
+        try {
+          await (window as any).ethereum.request({
+            method: 'wallet_addEthereumChain',
+            params: [
+              {
+                chainId: '0xaa36a7',
+                chainName: 'Sepolia',
+                rpcUrls: ['https://rpc.sepolia.org'],
+                nativeCurrency: { name: 'Sepolia Ether', symbol: 'SEP', decimals: 18 },
+                blockExplorerUrls: ['https://sepolia.etherscan.io']
+              },
+            ],
+          });
+          return {};
+        } catch (addError: any) {
+          return { error: 'Failed to add Sepolia network' };
+        }
+      }
+      return { error: 'Failed to switch to Sepolia network' };
+    }
+  },
+
   connectWallet: async () => {
-    if (DEMO_MODE) return { address: '0x7A...92F', network: 'Ethereum Sepolia', chainId: SEPOLIA_CHAIN_ID };
+    
     
     const provider = getProvider();
     if (!provider) return { address: '', network: '', chainId: 0, error: 'MetaMask not installed' };
@@ -96,7 +127,7 @@ export const walletService: WalletService = {
   },
 
   getUserWallets: async (factoryAddress: string, userAddress: string) => {
-    if (DEMO_MODE) return ['0x1111111111111111111111111111111111111111'];
+    
     const provider = getProvider();
     if (!provider || !factoryAddress || !userAddress) return [];
     try {
@@ -110,7 +141,7 @@ export const walletService: WalletService = {
   },
 
   getWalletBalance: async (address?: string) => {
-    if (DEMO_MODE) return { eth: '2.348', usd: '$5,842.16' };
+    
     
     const provider = getProvider();
     if (!provider || !address) return { eth: '0', usd: '$0' };
@@ -125,7 +156,7 @@ export const walletService: WalletService = {
   },
 
   getOwners: async (contractAddress: string) => {
-    if (DEMO_MODE) return demoOwners;
+    
 
     const provider = getProvider();
     if (!provider || !contractAddress) return [];
@@ -155,7 +186,7 @@ export const walletService: WalletService = {
   },
 
   getThreshold: async (contractAddress: string) => {
-    if (DEMO_MODE) return 2;
+    
     const provider = getProvider();
     if (!provider || !contractAddress) return 1;
     try {
@@ -165,7 +196,7 @@ export const walletService: WalletService = {
   },
 
   getDailyLimit: async (contractAddress: string) => {
-    if (DEMO_MODE) return '0.5';
+    
     const provider = getProvider();
     if (!provider || !contractAddress) return '0';
     try {
@@ -175,7 +206,7 @@ export const walletService: WalletService = {
   },
 
   getSpentToday: async (contractAddress: string) => {
-    if (DEMO_MODE) return '0.1';
+    
     const provider = getProvider();
     if (!provider || !contractAddress) return '0';
     try {
@@ -185,7 +216,7 @@ export const walletService: WalletService = {
   },
 
   getRemainingDailyLimit: async (contractAddress: string) => {
-    if (DEMO_MODE) return '0.4';
+    
     const provider = getProvider();
     if (!provider || !contractAddress) return '0';
     try {
@@ -195,7 +226,7 @@ export const walletService: WalletService = {
   },
 
   getHighValueThreshold: async (contractAddress: string) => {
-    if (DEMO_MODE) return '1.0';
+    
     const provider = getProvider();
     if (!provider || !contractAddress) return '0';
     try {
@@ -205,7 +236,7 @@ export const walletService: WalletService = {
   },
 
   getTimelockDuration: async (contractAddress: string) => {
-    if (DEMO_MODE) return '60';
+    
     const provider = getProvider();
     if (!provider || !contractAddress) return '0';
     try {
@@ -215,7 +246,7 @@ export const walletService: WalletService = {
   },
 
   isFrozen: async (contractAddress: string) => {
-    if (DEMO_MODE) return false;
+    
     const provider = getProvider();
     if (!provider || !contractAddress) return false;
     try {
@@ -225,7 +256,7 @@ export const walletService: WalletService = {
   },
 
   getTransactionCount: async (contractAddress: string) => {
-    if (DEMO_MODE) return 1;
+    
     const provider = getProvider();
     if (!provider || !contractAddress) return 0;
     try {
@@ -235,7 +266,7 @@ export const walletService: WalletService = {
   },
 
   getTransaction: async (contractAddress: string, id: number) => {
-    if (DEMO_MODE) return demoTransaction;
+    
     const provider = getProvider();
     if (!provider || !contractAddress) throw new Error("Not configured");
     const contract = await getContract(contractAddress, provider);
@@ -265,7 +296,7 @@ export const walletService: WalletService = {
   },
 
   getHistoryEvents: async (contractAddress: string) => {
-    if (DEMO_MODE) return [];
+    
     const provider = getProvider();
     if (!provider || !contractAddress) return [];
     try {
@@ -279,7 +310,7 @@ export const walletService: WalletService = {
   },
 
   submitTransaction: async (contractAddress, input) => {
-    if (DEMO_MODE) return demoResponse('Demo only: transaction payload prepared, not broadcast.');
+    
     try {
       const provider = getProvider();
       if (!provider) throw new Error("No web3 provider");
@@ -299,7 +330,7 @@ export const walletService: WalletService = {
   },
 
   approveTransaction: async (contractAddress, id) => {
-    if (DEMO_MODE) return demoResponse('Demo only: approval signature flow opened, not submitted.');
+    
     try {
       const provider = getProvider();
       if (!provider) throw new Error("No web3 provider");
@@ -316,7 +347,7 @@ export const walletService: WalletService = {
   },
 
   revokeApproval: async (contractAddress, id) => {
-    if (DEMO_MODE) return demoResponse('Demo only: revoke payload prepared, not broadcast.');
+    
     try {
       const provider = getProvider();
       if (!provider) throw new Error("No web3 provider");
@@ -333,7 +364,7 @@ export const walletService: WalletService = {
   },
 
   executeTransaction: async (contractAddress, id) => {
-    if (DEMO_MODE) return demoResponse('Demo only: execution payload prepared, not broadcast.');
+    
     try {
       const provider = getProvider();
       if (!provider) throw new Error("No web3 provider");
@@ -350,7 +381,7 @@ export const walletService: WalletService = {
   },
 
   deployWallet: async (factoryAddress, owners, threshold, dailyLimit, highValueThreshold, timelockDuration) => {
-    if (DEMO_MODE) return demoResponse('Demo only: Wallet deployment simulated.');
+    
     if (!factoryAddress || factoryAddress.trim() === '') {
       return { demo: false, message: '', error: 'WalletFactory address is missing! Please deploy the Factory and set NEXT_PUBLIC_FACTORY_ADDRESS in frontend/.env' };
     }
@@ -390,8 +421,6 @@ export const walletService: WalletService = {
   }
 }
 
-export const DEMO_MODE_NOTICE = DEMO_MODE 
-  ? 'Demo mode · blockchain actions are simulated for UI development.'
-  : 'Live mode · Connected to Sepolia Testnet.';
 
-export { demoOwners, demoTransaction }
+
+
